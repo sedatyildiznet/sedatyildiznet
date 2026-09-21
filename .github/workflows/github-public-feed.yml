@@ -1,0 +1,51 @@
+name: GitHub Public Feed to Telegram
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: github-public-feed
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore feed state
+        uses: actions/cache/restore@v4
+        with:
+          path: .github-public-feed-state.json
+          key: github-public-feed-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            github-public-feed-
+
+      - name: Publish new public GitHub events
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_FEED_USERNAME: sedatyildiznet
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python tools/github_public_feed.py
+
+      - name: Save feed state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .github-public-feed-state.json
+          key: github-public-feed-${{ github.run_id }}-${{ github.run_attempt }}
